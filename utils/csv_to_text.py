@@ -1,4 +1,5 @@
 import csv
+import re
 
 
 def main():
@@ -8,9 +9,11 @@ def main():
             reader = csv.reader(data)
             for row in reader:
                 print('writing... \n')
+
                 file.write(f'Title: {row[1]} \n')
                 file.write(f'Genre: {row[5]} \n')
                 file.write(f'Description: \n')
+
                 for word in row[7]:
                     if word != '\n':
                         file.write(word)
