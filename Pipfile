@@ -6,6 +6,9 @@ name = "pypi"
 [packages]
 numpy = "*"
 notebook = "*"
+torch = "*"
+torchvision = "*"
+torchaudio = "*"
 
 [dev-packages]
 
