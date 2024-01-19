@@ -6,7 +6,7 @@ Generates random movie plot with transformer decoder architecture using PyTorch.
 
 ## Current Progress
 
-Finished self-attention mechanism and 
+Finished self-attention mechanism and currently moving into a script for finishing the transformer.
 
 ## Create pipenv and install dependencies 
 
