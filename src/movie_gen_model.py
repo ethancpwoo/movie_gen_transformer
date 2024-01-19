@@ -1,21 +1,25 @@
+"""
+Movie Summary Generator from transformer architecture. Using Wikipedia movie summaries from Kaggle.
+
+Following guidelines from ShakespeareGPT by Andrej Karpathy
+"""
+
 import torch
 import torch.nn as nn
 import re
-
 from torch.nn import functional as F
 
 
-# Movie Summary Generator from transformer architecture. Using Wikipedia movie summaries from Kaggle.
-
-# Following guidelines from ShakespeareGPT by Andrej Karpathy
-
-# First read in the entire dataset
+test_data = []
+train_data = []
+batch_size = 8 # how many sequences will be processed in parallel
+block_size = 256 # how many tokens/nodes are we taking into context
 
 def read_text():
     with open('summaries.txt', 'r', encoding='utf8') as f:
         text = f.read()
 
-    #ensure that there are only Latin and special character wording. CJK characters are removed.
+    # ensure that there are only Latin and special character wording. CJK characters are removed
     pattern = re.compile(r'[^\x00-\x7F0-9\[\]]+')
     text = pattern.sub('', text)
 
@@ -58,7 +62,24 @@ def set_data(text : list):
     train_data = data[:n]
     test_data = data[n:]
 
-#def get_batch():
+# generates a small batch of data of inputs x and targets y
+    
+def get_batch(split : str):
+    if split == 'train':
+        data = train_data
+    else: 
+        data = test_data
+
+    # Gets random position to grab a block of data, batch size number of random offsets
+    # ix is 4 randomly generated numbers between 0 and len(data) - blocksize
+    ix = torch.randint(len(data) - block_size, (batch_size,))
+
+    # stack all 1D tensors into batch size by block size tensor
+    x = torch.stack([data[i:i+block_size] for i in ix])
+    # y is 1 ahead of x since y trains of all previous context x
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+
+    return x, y
 
 #class Head(nn.Module):
 
