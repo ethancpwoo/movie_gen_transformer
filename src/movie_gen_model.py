@@ -1,7 +1,7 @@
 """
 Movie Summary Generator from transformer architecture. Using Wikipedia movie summaries from Kaggle.
 
-Following guidelines from ShakespeareGPT by Andrej Karpathy
+Following guidelines from ShakespeareGPT by Andrej Karpathy and Attention Is All You Need paper. 
 """
 
 import torch
@@ -15,6 +15,7 @@ train_data = []
 batch_size = 8 # how many sequences will be processed in parallel
 block_size = 256 # how many tokens/nodes are we taking into context
 head_size = 16 #size of attention head
+n_embd = 384 # 
 
 def read_text():
     with open('summaries.txt', 'r', encoding='utf8') as f:
@@ -90,9 +91,9 @@ class Head(nn.Module):
 
     def __init__(self, head_size):
         super().__init__()
-        self.key = nn.Linear(C, head_size, bias=False) # size = (B, T, 16).
-        self.query = nn.Linear(C, head_size, bias=False)
-        self.value = nn.Linear(C, head_size, bias=False)
+        self.key = nn.Linear(n_embd, head_size, bias=False) # size = (B, T, 16).
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
     
     def forward(self, x):
 
@@ -126,18 +127,45 @@ class Head(nn.Module):
         out = wei @ v
         return out
 
-class FeedForwardNetwork(nn.Module):
-    
-    def __init__(self):
-        super().__init__()
-        self.net = nn.Sequential()
-
-#class Block(nn.Module):
-    
 class MultiHeadAttention(nn.Module):
-
-    def __init__(self):
+    # Stacked attention modules
+    def __init__(self, num_heads, head_size):
         super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        self.proj = nn.Linear(head_size * num_heads, n_embd)
+    
+    def forward(self, x):
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        return out
+
+class FeedForwardNetwork(nn.Module):
+    # Feed forward network after put through multiheadattention
+    def __init__(self, n_embd):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, 4 * n_embd),
+            nn.ReLU(),
+            nn.Linear(4 * n_embd, n_embd)
+        )
+    
+    def forward(self, x):
+        return self.net(x)
+
+class Block(nn.Module):
+    # A block of transformer module
+    def __init__(self, n_embd, n_heads):
+        super().__init__()
+        head_size = n_embd // n_heads
+        self.self_attention = MultiHeadAttention(n_heads, head_size)
+        self.forwardnet = FeedForwardNetwork(n_embd)
+        self.norm1 = nn.LayerNorm(n_embd)
+        self.norm2 = nn.LayerNorm(n_embd)
+    
+    def forward(self, x):
+        x = x + self.self_attention(self.norm1(x)) # attention + residual connection
+        x = x + self.forwardnet(self.norm2(x))
+
+
 
 #class MovieGenerativeTransformer(nn.Module):
 
