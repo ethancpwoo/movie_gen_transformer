@@ -14,6 +14,7 @@ test_data = []
 train_data = []
 batch_size = 8 # how many sequences will be processed in parallel
 block_size = 256 # how many tokens/nodes are we taking into context
+head_size = 16 #size of attention head
 
 def read_text():
     with open('summaries.txt', 'r', encoding='utf8') as f:
@@ -72,22 +73,71 @@ def get_batch(split : str):
 
     # Gets random position to grab a block of data, batch size number of random offsets
     # ix is 4 randomly generated numbers between 0 and len(data) - blocksize
+        
     ix = torch.randint(len(data) - block_size, (batch_size,))
 
     # stack all 1D tensors into batch size by block size tensor
     x = torch.stack([data[i:i+block_size] for i in ix])
-    # y is 1 ahead of x since y trains of all previous context x
+
+    # y is 1 index ahead of x since y trains of all previous context x
     y = torch.stack([data[i+1:i+block_size+1] for i in ix])
 
     return x, y
 
-#class Head(nn.Module):
+class Head(nn.Module):
 
-#class MultiHeadAttention(nn.Module):
+    # Single head of self-attention
 
-#class FeedForwardNetwork(nn.Module):
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(C, head_size, bias=False) # size = (B, T, 16).
+        self.query = nn.Linear(C, head_size, bias=False)
+        self.value = nn.Linear(C, head_size, bias=False)
+    
+    def forward(self, x):
+
+        # Instead of summing the values in the tensor, now will have a query and a key.
+        # Query is what I am looking for, Key is what I contain in terms of weight.
+        # Ex: if I am vowel, my key will be align well with query of constanants will have a high affinity.
+
+        B, T, C = x.shape
+
+        # Single Head of self-attention (normally chat-gpt will have mutliple heads for increased accuracy for attention)
+        # linear transformation template of y = x(A (transpose) ) + b
+        # independently generated keys and query so they do not have any affinity yet. 
+
+        k = self.key(x)
+        q = self.query(x)
+        v = self.value(x)
+
+        #here is the dot product to see which of the values generate affinity
+        # Affinity between tokens in tensor, dot of key and query = wei.
+        wei = q @ k.transpose(-2, -1) * k.shape[-1]**-0.5# due to batch dimension. (B, T, 16) @ (B, 16, T) => (B, T, T)
+
+        tril = torch.tril(torch.ones(T, T)) 
+        # triangle matrix (T, T)
+
+        wei = wei.masked_fill(tril == 0, float('-inf'))
+
+        #softmax is normalization function which defines summing and meaning.
+        wei = F.softmax(wei, dim=-1)
+
+        # v are the elements we aggregate, not raw x. X is sort of private to this token.
+        out = wei @ v
+        return out
+
+class FeedForwardNetwork(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential()
 
 #class Block(nn.Module):
+    
+class MultiHeadAttention(nn.Module):
+
+    def __init__(self):
+        super().__init__()
 
 #class MovieGenerativeTransformer(nn.Module):
 
