@@ -10,12 +10,16 @@ import re
 from torch.nn import functional as F
 
 
-test_data = []
-train_data = []
-batch_size = 8 # how many sequences will be processed in parallel
+batch_size = 64 # how many sequences will be processed in parallel
 block_size = 256 # how many tokens/nodes are we taking into context
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 head_size = 16 #size of attention head
-n_embd = 384 # 
+learning_rate = 3e-4 # small network so really aggresive learning rate
+max_iters = 5000
+n_embd = 384
+n_heads = 6
+n_layers = 6
+vocab_size = 0
 
 def read_text():
     with open('summaries.txt', 'r', encoding='utf8') as f:
@@ -28,8 +32,6 @@ def read_text():
     # find all unique characters in the text
     chars = sorted(list(set(text)))
     vocab_size = len(chars)
-    print(''.join(chars))
-    print(vocab_size)
 
     enc_map = {}
     dec_map = {}
@@ -53,20 +55,18 @@ def decode(ls : list, dec_map : dict) -> str:
     s = ''.join(char_list)
     return s
 
-def set_data(text : list):
-    data = torch.tensor(encode(text), dtype=torch.long)
-    print(data.shape, data.type)
-
-    #print first 1000 tokens from tensor
-    print(data[:1000])
+def set_data(text : list, enc_map: dict):
+    data = torch.tensor(encode(text, enc_map), dtype=torch.long)
 
     n = int(0.9 * len(data))
     train_data = data[:n]
     test_data = data[n:]
 
+    return train_data, test_data
+
 # generates a small batch of data of inputs x and targets y
     
-def get_batch(split : str):
+def get_batch(split : str, train_data : list, test_data : list):
     if split == 'train':
         data = train_data
     else: 
@@ -91,7 +91,7 @@ class Head(nn.Module):
 
     def __init__(self, head_size):
         super().__init__()
-        self.key = nn.Linear(n_embd, head_size, bias=False) # size = (B, T, 16).
+        self.key = nn.Linear(n_embd, head_size, bias=False) # size = (B, T, C).
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
     
@@ -166,12 +166,84 @@ class Block(nn.Module):
         x = x + self.forwardnet(self.norm2(x))
 
 
+class MovieGenerativeTransformer(nn.Module):
 
-#class MovieGenerativeTransformer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # For fast lookup, use embedding table for tokens
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+
+        self.blocks = nn.Sequential(*[Block(n_embd, n_heads=n_heads) for _ in range(n_layers)])
+        self.norm_layer = nn.LayerNorm(n_embd)
+        self.linear_head = nn.Linear(n_embd, vocab_size)
+    
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(self, idx, targets=None):
+        B, T = idx.shape
+
+        # idx and targets are both shapes (B, T) tensor of integers
+        token_emb_table = self.token_embedding_table(idx)
+        pos_emb_table = self.position_embedding_table(torch.arange(T, device=device))
+
+        x = token_emb_table + pos_emb_table
+        x = self.blocks(x)
+        x = self.norm_layer(x)
+        logits = self.linear_head(x)
+
+        if targets is None:
+            loss = None
+        else:
+            B, T, C = logits.shape
+            logits = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            loss = F.cross_entropy(logits, targets)
+    
+    def generate(self, idx, max_new_tokens):
+        for _ in range(max_new_tokens):
+            idx_cond = idx[:, -block_size:]
+            logits, loss = self(idx_cond)
+            logits = logits[:, -1, :]
+            probs = F.softmax(logits, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, idx_next), dim=1)
+        return idx
 
 def main():
     text, enc_map, dec_map = read_text()
+    
+    model = MovieGenerativeTransformer()
+    model = model.to(device)
 
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+    train_data, test_data =  set_data(text, enc_map)
+
+    print('here')
+
+    for iter in range(max_iters):
+
+        #if iter % eval_interval == 0:
+            # get losses
+        
+        xb, yb = get_batch('train', train_data, test_data)
+
+        logits, loss = model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+        print(iter)
+    
+    rand_context = torch.zeros((1, 1), dtype=torch.long, device=device)
+    print(decode(model.generate(rand_context, max_new_tokens=200)[0].tolist(), dec_map))
 
 
 if __name__ == '__main__':
