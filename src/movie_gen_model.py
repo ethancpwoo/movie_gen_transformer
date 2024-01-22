@@ -22,6 +22,7 @@ n_layers = 6
 vocab_size = 0
 
 def read_text():
+    global vocab_size
     with open('summaries.txt', 'r', encoding='utf8') as f:
         text = f.read()
 
@@ -50,6 +51,7 @@ def encode(s : str, enc_map : dict) -> list:
 
 def decode(ls : list, dec_map : dict) -> str:
     char_list = []
+    ls = ls.tolist()
     for i in ls: 
         char_list.append(dec_map[i]) 
     s = ''.join(char_list)
@@ -227,7 +229,7 @@ def main():
 
     train_data, test_data =  set_data(text, enc_map)
 
-    print('here')
+    print(vocab_size)
 
     for iter in range(max_iters):
 
