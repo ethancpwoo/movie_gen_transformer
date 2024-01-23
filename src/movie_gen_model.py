@@ -19,7 +19,6 @@ max_iters = 5000
 n_embd = 384
 n_heads = 6
 n_layers = 6
-vocab_size = 0
 
 def read_text():
     global vocab_size
@@ -41,7 +40,7 @@ def read_text():
         enc_map[character] = i
         dec_map[i] = character
     
-    return text, enc_map, dec_map
+    return text, enc_map, dec_map, vocab_size
 
 def encode(s : str, enc_map : dict) -> list:
     ls = []
@@ -84,7 +83,7 @@ def get_batch(split : str, train_data : list, test_data : list):
 
     # y is 1 index ahead of x since y trains of all previous context x
     y = torch.stack([data[i+1:i+block_size+1] for i in ix])
-
+    x, y = x.to(device), y.to(device)
     return x, y
 
 class Head(nn.Module):
@@ -164,6 +163,7 @@ class Block(nn.Module):
         self.norm2 = nn.LayerNorm(n_embd)
     
     def forward(self, x):
+        print(x.shape)
         x = x + self.self_attention(self.norm1(x)) # attention + residual connection
         x = x + self.forwardnet(self.norm2(x))
 
@@ -220,7 +220,7 @@ class MovieGenerativeTransformer(nn.Module):
         return idx
 
 def main():
-    text, enc_map, dec_map = read_text()
+    text, enc_map, dec_map, vocab_size = read_text()
     
     model = MovieGenerativeTransformer()
     model = model.to(device)
@@ -228,8 +228,6 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     train_data, test_data =  set_data(text, enc_map)
-
-    print(vocab_size)
 
     for iter in range(max_iters):
 
@@ -242,7 +240,6 @@ def main():
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
-        print(iter)
     
     rand_context = torch.zeros((1, 1), dtype=torch.long, device=device)
     print(decode(model.generate(rand_context, max_new_tokens=200)[0].tolist(), dec_map))
