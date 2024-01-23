@@ -1,4 +1,4 @@
-# legal_case_transformer
+# movie_generative_transformer
 
 ## Overview 
 
