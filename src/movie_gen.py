@@ -149,6 +149,19 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         return out
 
+class FeedForwardNetwork(nn.Module):
+    # Feed forward network after put through multiheadattention
+    def __init__(self, n_embd):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, 4 * n_embd),
+            nn.ReLU(),
+            nn.Linear(4 * n_embd, n_embd)
+        )
+    
+    def forward(self, x):
+        return self.net(x)
+
 class MovieModel(nn.Module):
 
     def __init__(self):
@@ -157,6 +170,7 @@ class MovieModel(nn.Module):
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.self_attention_heads = MultiHeadAttention(4, n_embd//4)
         self.language_modeling_head = nn.Linear(n_embd, vocab_size)
+        self.feedfoward = FeedForwardNetwork(n_embd)
 
     def forward(self, idx, targets=None):
         """
@@ -170,7 +184,8 @@ class MovieModel(nn.Module):
 
         x = token_embeddings + position_embeddings
         x = self.self_attention_heads(x)
-
+        x = self.feedfoward(x)
+        
         logits = self.language_modeling_head(x)
 
         if targets is None:
