@@ -143,10 +143,11 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
-        # self.proj = nn.Linear(head_size * num_heads, n_embd)
+        self.proj = nn.Linear(n_heads, n_embd)
     
     def forward(self, x):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
+        out = self.proj(out)
         return out
 
 class FeedForwardNetwork(nn.Module):
@@ -162,15 +163,28 @@ class FeedForwardNetwork(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+class Block(nn.Module):
+    # A block of transformer module
+    def __init__(self, n_embd, n_heads):
+        super().__init__()
+        head_size = n_embd // n_heads
+        self.self_attention = MultiHeadAttention(n_heads, head_size)
+        self.forwardnet = FeedForwardNetwork(n_embd)
+        # self.norm1 = nn.LayerNorm(n_embd)
+        # self.norm2 = nn.LayerNorm(n_embd)
+    
+    def forward(self, x):
+        x = x + self.self_attention(x) # attention + residual connection
+        x = x + self.forwardnet(x)
+
 class MovieModel(nn.Module):
 
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.self_attention_heads = MultiHeadAttention(4, n_embd//4)
+        self.blocks = nn.Sequential(*[Block(n_embd, n_heads=n_heads) for _ in range(n_layers)])
         self.language_modeling_head = nn.Linear(n_embd, vocab_size)
-        self.feedfoward = FeedForwardNetwork(n_embd)
 
     def forward(self, idx, targets=None):
         """
@@ -183,8 +197,7 @@ class MovieModel(nn.Module):
         position_embeddings = self.position_embedding_table(torch.arange(T, device=device))
 
         x = token_embeddings + position_embeddings
-        x = self.self_attention_heads(x)
-        x = self.feedfoward(x)
+        x = self.blocks(x)
         
         logits = self.language_modeling_head(x)
 
