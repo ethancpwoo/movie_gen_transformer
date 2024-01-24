@@ -16,9 +16,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_interval = 500
 eval_iters = 200
 head_size = 16 #size of attention head
-learning_rate = 1e-3 # small network so really aggresive learning rate
-max_iters = 5000
-n_embd = 384
+learning_rate = 3e-4 # small network so really aggresive learning rate
+max_iters = 8000
+n_embd = 384 # number of embedding dimensions, instead of going vocab -> logits, vocab_size -> n_embd -> logits for more params.
 n_heads = 6
 n_layers = 6
 
@@ -143,7 +143,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
-        self.proj = nn.Linear(n_heads, n_embd)
+        self.proj = nn.Linear(n_embd, n_embd)
     
     def forward(self, x):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
@@ -176,6 +176,7 @@ class Block(nn.Module):
     def forward(self, x):
         x = x + self.self_attention(x) # attention + residual connection
         x = x + self.forwardnet(x)
+        return x
 
 class MovieModel(nn.Module):
 
@@ -184,7 +185,9 @@ class MovieModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(*[Block(n_embd, n_heads=n_heads) for _ in range(n_layers)])
+        self.layernorm = nn.LayerNorm(n_embd)
         self.language_modeling_head = nn.Linear(n_embd, vocab_size)
+
 
     def forward(self, idx, targets=None):
         """
@@ -198,6 +201,7 @@ class MovieModel(nn.Module):
 
         x = token_embeddings + position_embeddings
         x = self.blocks(x)
+        x = self.layernorm(x)
         
         logits = self.language_modeling_head(x)
 
