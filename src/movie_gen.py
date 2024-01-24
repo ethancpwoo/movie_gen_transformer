@@ -4,10 +4,14 @@ Movie Summary Generator from transformer architecture. Using Wikipedia movie sum
 Following guidelines from ShakespeareGPT by Andrej Karpathy and Attention Is All You Need paper. 
 """
 
+import matplotlib.pyplot as plt
+import time
 import torch
 import torch.nn as nn
 import re
+
 from torch.nn import functional as F
+from tqdm import tqdm
 
 
 batch_size = 64 # how many sequences will be processed in parallel
@@ -61,6 +65,33 @@ def set_data(text : list, enc_map: dict):
     test_data = data[n:]
 
     return train_data, test_data
+
+def create_acc_loss_graph(model_name):
+    contents = open("model.log", "r").read().split("\n")
+    iters = []
+    val_accs = []
+    val_losses = []
+    
+    for c in contents: 
+        if model_name in c:
+            name, iter, val_acc, val_loss = c.split(",")
+            iters.append(float(iter))
+            val_accs.append(float(val_acc))
+            val_losses.append(float(val_loss))
+
+    fig = plt.figure()
+    ax1 = plt.subplot2grid((2,1), (0,0))
+    ax2 = plt.subplot2grid((2,1), (0,0), sharex = ax1)
+
+    ax1.plot(iters, val_accs, label="val_acc")
+    ax1.legend(loc="upper left")
+    ax1.set_xlabel("iteration")
+    
+    ax2.plot(iters, val_losses, label="val_loss")
+    ax2.legend(loc="upper left")
+
+    plt.show()
+    plt.savefig('out/losschart')
 
 # generates a small batch of data of inputs x and targets y
     
@@ -240,18 +271,20 @@ model = model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-for iter in range(max_iters):
+with open("model.log", "a") as f:
+    for iter in tqdm(range(max_iters)):
 
-    if iter % eval_interval == 0:
-        losses= estimate_loss(train_data, test_data)
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-    
-    xb, yb = get_batch('train', train_data, test_data)
+        if iter % eval_interval == 0:
+            losses = estimate_loss(train_data, test_data)
+            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+            f.write(f"moviegen-8000iter, {iter}, {losses['train']}, {losses['val']}")
+        
+        xb, yb = get_batch('train', train_data, test_data)
 
-    logits, loss = model(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+        logits, loss = model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
 
 rand_context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(decode(model.generate(rand_context, max_new_tokens=200)[0].tolist(), dec_map))

@@ -11,9 +11,12 @@ name = "pytorch"
 [packages]
 numpy = "*"
 notebook = "*"
+matplotlib = "*"
 torchaudio = {version = "*", index = "pytorch"}
 torchvision = {version = "*", index = "pytorch"}
 torch = {version = "*", index = "pytorch"}
+tqdm = "*"
+
 
 [dev-packages]
 
