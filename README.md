@@ -47,6 +47,8 @@ Trained for 4500 iterations since graph from first training showed minimum loss 
 
 ![Loss Graph](https://github.com/ethancpwoo/movie_gen_transformer/blob/main/src/out/losschart.png?raw=true)
 
+Result:
+
 Genre: action/screen
 Description:
 Pivil with Meiniciet, who tries to learn the house of the dirty himself of his job. Riv telves them to do, however, so as a pole onto Susie's hooffared to Alice. Agner arrives to Homes. Meanwhile, who has been killed by Jerice and gives home fights. Om wants to his griting, Al Ate becomes withdring the Confederal Computtany country rusiness. Grandman overs his way. Wilderward Grece to move with Byan's boyfriend, Obsesva becomes a job. He does the training as a leader after rescuing him for a more with Gyramjee's physical ceal company. When they go out any may each other first-fletee, Lonovelyn and Fonder she discovers or the Nazi, but also rides it back in a mafirs.
@@ -57,6 +59,8 @@ A sked, and osball a pact at Ishan and smashes him in tramplains. She is climb i
 Trained for 8000 iterations with dropout and layer norms between attention heads. From dropout paper, it should prevent overfitting massively and allow for more training iterations thus back to 8000 iters. 
 
 ![Loss Graph](https://github.com/ethancpwoo/movie_gen_transformer/blob/main/src/out/losschartdropout8000iter.png?raw=true)
+
+Result
 
 Title: Eventually Broads of a and damaged
 Genre: feedy
