@@ -18,6 +18,7 @@ from tqdm import tqdm
 batch_size = 64 # how many sequences will be processed in parallel
 block_size = 256 # how many tokens/nodes are we taking into context
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+dropout = 0.2
 eval_interval = 200
 eval_iters = 200
 head_size = 16 #size of attention head
@@ -68,15 +69,14 @@ def set_data(text : list, enc_map: dict):
     return train_data, test_data
 
 def create_acc_loss_graph():
+
     style.use("ggplot")
-    contents = open("out/model.log", "r").read().split("\n")
+    contents = open("out/modeldropout.log", "r").read().split("\n")
     iters = []
     val_accs = []
     val_losses = []
-    
-    print(contents)
 
-    for c in contents: 
+    for c in contents[:-1]: 
         name, iter, val_acc, val_loss = c.split(",")
         iters.append(float(iter))
         val_accs.append(float(val_acc))
@@ -90,7 +90,7 @@ def create_acc_loss_graph():
     ax1.legend(loc="upper left")
     ax1.set_xlabel("iteration")
 
-    plt.savefig('out/losschart')
+    plt.savefig('out/losschartdropout')
 
 # generates a small batch of data of inputs x and targets y
     
@@ -136,8 +136,11 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embd, head_size, bias=False) # size = (B, T, C).
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
+
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
         # triangle matrix (block size, block size)
+
+        self.dropout = nn.Dropout(dropout)
     
     def forward(self, x):
 
@@ -174,10 +177,11 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
         self.proj = nn.Linear(n_embd, n_embd)
+        self.dropout = nn.Dropout(dropout)
     
     def forward(self, x):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
-        out = self.proj(out)
+        out = self.dropout(self.proj(out))
         return out
 
 class FeedForwardNetwork(nn.Module):
@@ -187,7 +191,8 @@ class FeedForwardNetwork(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(n_embd, 4 * n_embd),
             nn.ReLU(),
-            nn.Linear(4 * n_embd, n_embd)
+            nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(dropout)
         )
     
     def forward(self, x):
@@ -200,12 +205,12 @@ class Block(nn.Module):
         head_size = n_embd // n_heads
         self.self_attention = MultiHeadAttention(n_heads, head_size)
         self.forwardnet = FeedForwardNetwork(n_embd)
-        # self.norm1 = nn.LayerNorm(n_embd)
-        # self.norm2 = nn.LayerNorm(n_embd)
+        self.norm1 = nn.LayerNorm(n_embd)
+        self.norm2 = nn.LayerNorm(n_embd)
     
     def forward(self, x):
-        x = x + self.self_attention(x) # attention + residual connection
-        x = x + self.forwardnet(x)
+        x = x + self.self_attention(self.norm1(x)) # attention + residual connection
+        x = x + self.forwardnet(self.norm2(x))
         return x
 
 class MovieModel(nn.Module):
@@ -262,31 +267,30 @@ class MovieModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
 
-# print(device)
-# train_data, test_data = set_data(text, enc_map)
+train_data, test_data = set_data(text, enc_map)
 
-# model = MovieModel()
-# model = model.to(device)
+model = MovieModel()
+model = model.to(device)
 
-# optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-# with open("out/model.log", "a") as f:
-#     for iter in tqdm(range(max_iters)):
+with open("out/modeldropout.log", "a") as f:
+    for iter in tqdm(range(max_iters)):
 
-#         if iter % eval_interval == 0:
-#             losses = estimate_loss(train_data, test_data)
-#             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-#             f.write(f"moviegen-8000iter, {iter}, {losses['train']}, {losses['val']}\n")
+        if iter % eval_interval == 0:
+            losses = estimate_loss(train_data, test_data)
+            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+            f.write(f"moviegendropout, {iter}, {losses['train']}, {losses['val']}\n")
         
-#         xb, yb = get_batch('train', train_data, test_data)
+        xb, yb = get_batch('train', train_data, test_data)
 
-#         logits, loss = model(xb, yb)
-#         optimizer.zero_grad(set_to_none=True)
-#         loss.backward()
-#         optimizer.step()
+        logits, loss = model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
 
-# rand_context = torch.zeros((1, 1), dtype=torch.long, device=device)
-# print(decode(model.generate(rand_context, max_new_tokens=1000)[0].tolist(), dec_map))
+rand_context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(model.generate(rand_context, max_new_tokens=1000)[0].tolist(), dec_map))
 
 create_acc_loss_graph()
-# torch.save(model.state_dict(), 'out/moviegen.pt')
+torch.save(model.state_dict(), 'out/moviegendropout.pt')
