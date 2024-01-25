@@ -6,7 +6,7 @@ Generates random movie plot with transformer decoder architecture using PyTorch.
 
 ## Current Progress
 
-Finished self-attention mechanism and currently moving into a script for finishing the transformer.
+Currently modifying hyperparameters to minimize loss. Implemented dropout with significant improvements. 
 
 ## Create pipenv and install dependencies 
 
@@ -16,14 +16,27 @@ Install Python 3.10.12
 cd ./path/to/project
 pip install pipenv --user
 pipenv install
+```
+## Running and Training
 
+To train network:
+
+```shell
 pipenv shell
 cd src
 python moviegen.py
 ```
+Models and training logs will be stored in ``` /src/out ``` folder.
+
 ## Results
 
-First iteration: 
+# First iteration:
+
+Trained for 8000 iterations. No dropout and no layer norms between attention blocks.
+
+![Loss Graph](https://github.com/ethancpwoo/movie_gen_transformer/blob/main/src/out/losschart-8000iters.png?raw=true)
+
+Result: 
 
 ysapualdabneunr.re it eo  oh. a co  seqipnvge ael.e sttla hfarehu hmciCJnn.dtr eelpoebhtexrghhwatlrea tedfwMhgs gii mo fb syp   eeh aebe   yelesifns ivufwaf - evetseb  tyotsrmvsPiepLsscnsnaasi ahdcthg
 
