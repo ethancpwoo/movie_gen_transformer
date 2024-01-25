@@ -1,7 +1,7 @@
 """
 Movie Summary Generator from transformer architecture. Using Wikipedia movie summaries from Kaggle.
 
-Following guidelines from ShakespeareGPT by Andrej Karpathy and Attention Is All You Need paper. 
+Following guidelines from ShakespeareGPT by Andrej Karpathy, Attention Is All You Need paper, and Dropout: A Simple Way to Prevent Overfitting. 
 """
 
 import matplotlib.pyplot as plt
@@ -18,12 +18,12 @@ from tqdm import tqdm
 batch_size = 64 # how many sequences will be processed in parallel
 block_size = 256 # how many tokens/nodes are we taking into context
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-dropout = 0.2
+dropout = 0.2 #to prevent overfitting, drops out random neurons 
 eval_interval = 200
 eval_iters = 200
 head_size = 16 #size of attention head
 learning_rate = 3e-4 # small network so really aggresive learning rate
-max_iters = 4500
+max_iters = 8000
 n_embd = 384 # number of embedding dimensions, instead of going vocab -> logits, vocab_size -> n_embd -> logits for more params.
 n_heads = 6
 n_layers = 6
@@ -71,7 +71,7 @@ def set_data(text : list, enc_map: dict):
 def create_acc_loss_graph():
 
     style.use("ggplot")
-    contents = open("out/modeldropout.log", "r").read().split("\n")
+    contents = open("out/modeldropout8000iter.log", "r").read().split("\n")
     iters = []
     val_accs = []
     val_losses = []
@@ -90,7 +90,7 @@ def create_acc_loss_graph():
     ax1.legend(loc="upper left")
     ax1.set_xlabel("iteration")
 
-    plt.savefig('out/losschartdropout')
+    plt.savefig('out/losschartdropout8000iter')
 
 # generates a small batch of data of inputs x and targets y
     
@@ -274,13 +274,13 @@ model = model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-with open("out/modeldropout.log", "a") as f:
+with open("out/modeldropout8000iter.log", "a") as f:
     for iter in tqdm(range(max_iters)):
 
         if iter % eval_interval == 0:
             losses = estimate_loss(train_data, test_data)
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-            f.write(f"moviegendropout, {iter}, {losses['train']}, {losses['val']}\n")
+            f.write(f"moviegendropout8000iter, {iter}, {losses['train']}, {losses['val']}\n")
         
         xb, yb = get_batch('train', train_data, test_data)
 
@@ -293,4 +293,4 @@ rand_context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(decode(model.generate(rand_context, max_new_tokens=1000)[0].tolist(), dec_map))
 
 create_acc_loss_graph()
-torch.save(model.state_dict(), 'out/moviegendropout.pt')
+torch.save(model.state_dict(), 'out/moviegendropout8000iter.pt')
