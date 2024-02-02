@@ -213,6 +213,23 @@ class Block(nn.Module):
         x = x + self.forwardnet(self.norm2(x))
         return x
 
+class EncoderLayer(nn.Module):
+    def __init__(self, dim, num_heads, n_embd):
+        super(EncoderLayer, self).__init__()
+        self.self_attention = MultiHeadAttention(num_heads, head_size)
+        self.feed_foward = FeedForwardNetwork(n_embd)
+        self.norm1 = nn.LayerNorm(n_embd)
+        self.norm2 = nn.LayerNorm(n_embd)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask):
+        atn_out = self.self_attention(x, x, x, mask)
+        x = self.norm1(x + self.dropout(atn_out))
+        x = self.feed_foward(x)
+        x = self.norm2(x + self.dropout(x))
+        return x
+
+
 class MovieModel(nn.Module):
 
     def __init__(self):
