@@ -2,10 +2,19 @@
 Movie Summary Generator from transformer architecture. Using Wikipedia movie summaries from Kaggle.
 
 Following guidelines from ShakespeareGPT by Andrej Karpathy, Attention Is All You Need paper, and Dropout: A Simple Way to Prevent Overfitting. 
+
+Classes: 
+    Block: Standard block of transformer which includes attention and feedforward network.
+    Head: Head of attention. Provides scaled dot product of positions of token context to predict.
+    MultiHeadAttention: Multiple heads in parallel for increased prediction. 
+    FeedForwardNetwork: Pass through feed forward to "learn" from context.
+    MovieModel: Decoder architecture of transformer.
 """
 
-import matplotlib.pyplot as plt
+
 import time
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import re
@@ -47,12 +56,14 @@ for i, character in enumerate(chars):
     dec_map[i] = character
 
 def encode(s : str, enc_map : dict) -> list:
+    """Encodes a string to token integer."""
     ls = []
     for char in s:
         ls.append(enc_map[char])
     return ls
 
 def decode(ls : list, dec_map : dict) -> str:
+    """Decodes a token integer to a string."""
     char_list = []
     for i in ls: 
         char_list.append(dec_map[i]) 
@@ -60,6 +71,7 @@ def decode(ls : list, dec_map : dict) -> str:
     return s
 
 def set_data(text : list, enc_map: dict):
+    """Sets given text to tensor and divides data to train and eval."""
     data = torch.tensor(encode(text, enc_map), dtype=torch.long)
 
     n = int(0.9 * len(data))
@@ -69,7 +81,7 @@ def set_data(text : list, enc_map: dict):
     return train_data, test_data
 
 def create_acc_loss_graph():
-
+    """Creates loss graph for visual of loss."""
     style.use("ggplot")
     contents = open("out/modeldropout8000iter.log", "r").read().split("\n")
     iters = []
@@ -95,6 +107,7 @@ def create_acc_loss_graph():
 # generates a small batch of data of inputs x and targets y
     
 def get_batch(split : str, train_data : list, test_data : list):
+    """Creates random batch of words from data to train/eval."""
     if split == 'train':
         data = train_data
     else: 
@@ -115,6 +128,7 @@ def get_batch(split : str, train_data : list, test_data : list):
 
 @torch.no_grad()
 def estimate_loss(train_data : list, test_data : list):
+    """Used to estimate loss during training loops. Will not train on network."""
     out = {}
     model.eval()
     for split in ['train', 'val']:
@@ -128,10 +142,10 @@ def estimate_loss(train_data : list, test_data : list):
     return out
 
 class Head(nn.Module):
-
-    # Single head of self-attention
+    """Single head of self attention."""
 
     def __init__(self, head_size):
+        """Linear functions as K, Q, V values. Creates triangle matrix and dropout."""
         super().__init__()
         self.key = nn.Linear(n_embd, head_size, bias=False) # size = (B, T, C).
         self.query = nn.Linear(n_embd, head_size, bias=False)
@@ -143,6 +157,7 @@ class Head(nn.Module):
         self.dropout = nn.Dropout(dropout)
     
     def forward(self, x):
+        """Passes x through attention block. Returns tensor of affinity for each token."""
 
         # Instead of summing the values in the tensor, now will have a query and a key.
         # Query is what I am looking for, Key is what I contain in terms of weight.
@@ -172,7 +187,7 @@ class Head(nn.Module):
         return out
 
 class MultiHeadAttention(nn.Module):
-    # Stacked attention modules
+    """Stacked attention modules."""
     def __init__(self, num_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
@@ -185,7 +200,7 @@ class MultiHeadAttention(nn.Module):
         return out
 
 class FeedForwardNetwork(nn.Module):
-    # Feed forward network after put through multiheadattention
+    """Feed forward network after put through multiheadattention."""
     def __init__(self, n_embd):
         super().__init__()
         self.net = nn.Sequential(
@@ -199,7 +214,7 @@ class FeedForwardNetwork(nn.Module):
         return self.net(x)
 
 class Block(nn.Module):
-    # A block of transformer module
+    """A block of transformer module."""
     def __init__(self, n_embd, n_heads):
         super().__init__()
         head_size = n_embd // n_heads
@@ -214,6 +229,7 @@ class Block(nn.Module):
         return x
 
 class EncoderLayer(nn.Module):
+    """Not yet implemented."""
     def __init__(self, dim, num_heads, n_embd):
         super(EncoderLayer, self).__init__()
         self.self_attention = MultiHeadAttention(num_heads, head_size)
@@ -231,7 +247,7 @@ class EncoderLayer(nn.Module):
 
 
 class MovieModel(nn.Module):
-
+    """Transformer decoder model. Combination of previous classes."""
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
@@ -243,6 +259,8 @@ class MovieModel(nn.Module):
 
     def forward(self, idx, targets=None):
         """
+        Takes idx and trains with self-attention.
+
         Definitions:
         logits: outputs of nn before activation function
         tokens: inputs for nn
@@ -268,7 +286,7 @@ class MovieModel(nn.Module):
         return logits, loss
     
     def generate(self, idx, max_new_tokens):
-
+        """Takes idx which is randomly generated and generates new tokens based off context."""
         for _ in range(max_new_tokens):
             # crop idx to block size tokens
             idx_cond = idx[:, -block_size:]

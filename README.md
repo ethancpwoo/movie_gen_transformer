@@ -8,6 +8,7 @@ Generates random movie plot with transformer decoder architecture using PyTorch.
 
 Currently modifying hyperparameters to minimize loss. Implemented dropout with significant improvements.
 The project only includes the decoder portion of the transformer, plans for the project would include the implementation of the encoder.
+Implementing encoder to provide initial context. Perhaps also positional encoding, but understanding of it is not yet adequate.
 
 ## Create pipenv and install dependencies 
 

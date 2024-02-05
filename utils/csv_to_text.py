@@ -1,3 +1,7 @@
+"""
+Converts csv files to a text file used for data in model.
+"""
+
 import csv
 import re
 
